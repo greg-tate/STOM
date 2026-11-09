@@ -1,6 +1,6 @@
 # STOM Solution - Hybrid 3-Project Architecture
 
-This is the refactored ASTM→STOM solution implementing a **Blazor WebAssembly hybrid 3-project architecture** for tournament scoring and management.
+This is the STOM solution implementing a **Blazor WebAssembly hybrid 3-project architecture** for tournament scoring and management.
 
 ## Solution Structure
 
@@ -63,7 +63,7 @@ STOM/
 
 ### Step 1: Restore & Build
 ```powershell
-cd C:\Source\Repos\ASTM
+cd C:\Source\Repos\STOM
 dotnet restore
 dotnet build
 ```
@@ -80,14 +80,14 @@ sqlcmd -S "(localdb)\mssqllocaldb" -d STOM_DB -i STOM.Database\Scripts\003-SeedD
 
 **Terminal 1 - API (Port 5022)**:
 ```powershell
-cd C:\Source\Repos\ASTM\STOM.API
+cd C:\Source\Repos\STOM\STOM.API
 dotnet run
 # → http://localhost:5022
 ```
 
 **Terminal 2 - Blazor App (Port 5173)**:
 ```powershell
-cd C:\Source\Repos\ASTM\STOM.App
+cd C:\Source\Repos\STOM\STOM.App
 dotnet run
 # → http://localhost:5173
 ```

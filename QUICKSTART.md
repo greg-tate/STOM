@@ -17,7 +17,7 @@ dotnet --version
 
 ### Step 2: Setup Database (Run Once)
 ```powershell
-cd C:\Source\Repos\ASTM
+cd C:\Source\Repos\STOM
 
 # Create database and tables
 sqlcmd -S "(localdb)\mssqllocaldb" -i STOM.Database\Scripts\001-CreateDatabase.sql
@@ -29,7 +29,7 @@ echo "Database ready!"
 
 ### Step 3: Start STOM.API (Terminal 1)
 ```powershell
-cd C:\Source\Repos\ASTM\STOM.API
+cd C:\Source\Repos\STOM\STOM.API
 dotnet run
 ```
 
@@ -42,7 +42,7 @@ Application started. Press Ctrl+C to shut down.
 
 ### Step 4: Start STOM.App (Terminal 2)
 ```powershell
-cd C:\Source\Repos\ASTM\STOM.App
+cd C:\Source\Repos\STOM\STOM.App
 dotnet run
 ```
 
@@ -199,14 +199,14 @@ netstat -ano | findstr :5022
 
 ```powershell
 # Start development
-cd C:\Source\Repos\ASTM\STOM.API && dotnet run    # Terminal 1
-cd C:\Source\Repos\ASTM\STOM.App && dotnet run    # Terminal 2
+cd C:\Source\Repos\STOM\STOM.API && dotnet run    # Terminal 1
+cd C:\Source\Repos\STOM\STOM.App && dotnet run    # Terminal 2
 
 # Build solution
-cd C:\Source\Repos\ASTM && dotnet build
+cd C:\Source\Repos\STOM && dotnet build
 
 # Restore packages
-cd C:\Source\Repos\ASTM && dotnet restore
+cd C:\Source\Repos\STOM && dotnet restore
 
 # Access the app
 # Browser: http://localhost:5173
