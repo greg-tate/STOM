@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ProjectName>STOM.Database</ProjectName>
+    <Description>SQL Server database scripts and schema for STOM</Description>
+  </PropertyGroup>
+</Project>
+

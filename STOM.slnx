@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="STOM.API/STOM.API.csproj" />
+  <Project Path="STOM.App/STOM.App.csproj" />
+  <Project Path="STOM.Database/STOM.Database.csproj" />
+</Solution>

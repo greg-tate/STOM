@@ -1,0 +1,75 @@
+@page "/"
+@inject AuthService authService
+@inject NavigationManager nav
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <h1>STOM - Scoring Tournament Management</h1>
+            <p class="lead">Welcome! Choose your role to get started.</p>
+
+            <div class="alert alert-info">
+                <strong>Current Role:</strong> @authService.CurrentRole | <strong>User:</strong> @authService.CurrentUser
+            </div>
+
+            <div class="card-group">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Scorer</h5>
+                        <p class="card-text">Enter game scores and participate in tournaments.</p>
+                        <button class="btn btn-primary" @onclick="@(async () => await LoginAs("Scorer"))">
+                            Login as Scorer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Admin</h5>
+                        <p class="card-text">View dashboards and approve scores.</p>
+                        <button class="btn btn-warning" @onclick="@(async () => await LoginAs("Admin"))">
+                            Login as Admin
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">SuperAdmin</h5>
+                        <p class="card-text">Full admin access and audit logs.</p>
+                        <button class="btn btn-danger" @onclick="@(async () => await LoginAs("SuperAdmin"))">
+                            Login as SuperAdmin
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (authService.CurrentRole == "Scorer")
+            {
+                <div class="mt-4">
+                    <p><a href="/score/1" class="btn btn-sm btn-info">Go to Score Entry</a></p>
+                </div>
+            }
+            else if (authService.CurrentRole == "Admin")
+            {
+                <div class="mt-4">
+                    <p><a href="/admin/dashboard" class="btn btn-sm btn-info">Go to Dashboard</a></p>
+                </div>
+            }
+            else if (authService.CurrentRole == "SuperAdmin")
+            {
+                <div class="mt-4">
+                    <p><a href="/superadmin/console" class="btn btn-sm btn-info">Go to Admin Console</a></p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private async Task LoginAs(string role)
+    {
+        await authService.LoginAsync(authService.CurrentUser, role);
+        StateHasChanged();
+    }
+}
