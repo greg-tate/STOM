@@ -1,108 +1,178 @@
-# STOM Database Setup Guide
+# STOM Database Setup Guide - SQL Server Edition
 
 ## Overview
 
-STOM uses **SQL Server** as its primary database, with automatic database creation and schema management via Entity Framework Core migrations. The database is **automatically initialized on application startup** with zero manual setup required.
+STOM uses **SQL Server** as its central backend database for both development and production environments. IndexedDB (browser-based storage) provides offline capability and syncs back to SQL Server.
+
+---
+
+## Architecture
+
+```
+Typical STOM Deployment:
+
+┌─────────────────────────────┐
+│      SQL Server             │  ← Central Backend
+│   (STOM_DB or STOM_DB_Dev)  │  (Source of Truth)
+│                             │
+│  - Tournaments              │
+│  - Players                  │
+│  - Games & Scores           │
+│  - Audit Logs               │
+└────────────┬────────────────┘
+             │
+        REST API
+             │
+┌────────────▼────────────────┐
+│  Blazor Web Application     │
+├─────────────────────────────┤
+│    Browser IndexedDB        │  ← Offline Cache
+│                             │
+│  - Cached tournament data   │
+│  - Pending score changes    │
+│  - Sync queue               │
+└─────────────────────────────┘
+```
+
+---
+
+## Prerequisites
+
+### Required
+- ✅ SQL Server 2019 or later (Express, Developer, or Standard Edition)
+- ✅ .NET 8+ runtime
+- ✅ Administrator access to SQL Server
+
+### Installation
+If SQL Server is not installed, download one of these:
+- **SQL Server Express** (Free, 10GB limit): https://www.microsoft.com/en-us/sql-server/sql-server-editions-express
+- **SQL Server Developer Edition** (Free, full features): https://www.microsoft.com/en-us/sql-server/sql-server-editions-developer
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-- ✅ SQL Server Express LocalDB (included with Visual Studio or SQL Server Developer Edition)
-- ✅ .NET 8+ runtime
-- ✅ STOM.API and migrations already created
+### 1. Verify SQL Server Installation
 
-### To Start Using the Database
+```bash
+# Test connection to local SQL Server
+sqlcmd -S . -Q "SELECT @@VERSION"
 
-1. **Run the STOM.API application:**
-   ```bash
-   cd C:\Source\Repos\STOM\STOM.API
-   dotnet run
-   ```
+# If this fails, SQL Server is not installed or not running
+```
 
-2. **That's it!** The application automatically:
-   - ✅ Creates the database if it doesn't exist
-   - ✅ Applies all pending migrations
-   - ✅ Logs progress to console
-   - ✅ Is ready to accept requests
+### 2. Update Connection String (if needed)
+
+**For default SQL Server installation:**
+
+File: `STOM.API/appsettings.Development.json`
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.;Database=STOM_DB_Dev;Integrated Security=true;"
+  }
+}
+```
+
+**For named instance (e.g., SQLEXPRESS):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=STOM_DB_Dev;Integrated Security=true;"
+  }
+}
+```
+
+### 3. Run the Application
+
+```bash
+cd C:\Source\Repos\STOM\STOM.API
+set ASPNETCORE_ENVIRONMENT=Development
+dotnet run
+```
+
+### 4. Verify Database Creation
+
+Watch for this message in the console:
+```
+========== DATABASE INITIALIZATION SUCCESS ==========
+```
+
+The database `STOM_DB_Dev` will be created automatically with all required tables.
 
 ---
 
 ## Database Configuration
 
-### Connection String
+### Development Database
 
-**File:** `appsettings.json`
+**File:** `STOM.API/appsettings.Development.json`
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=STOM_DB;Integrated Security=true;"
+    "DefaultConnection": "Server=.;Database=STOM_DB_Dev;Integrated Security=true;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.EntityFrameworkCore": "Debug"
+    }
   }
 }
 ```
 
-| Component | Value | Description |
-|-----------|-------|-------------|
-| **Server** | `(localdb)\mssqllocaldb` | Local SQL Server instance (no installation needed) |
-| **Database** | `STOM_DB` | Database name (created automatically) |
-| **Auth** | `Integrated Security=true` | Windows Authentication |
+| Component | Value | Purpose |
+|-----------|-------|---------|
+| **Server** | `.` | Local SQL Server (default instance) |
+| **Database** | `STOM_DB_Dev` | Development database (isolated) |
+| **Authentication** | Windows | Uses your Windows user account |
+| **Logging** | Debug | Verbose logging for troubleshooting |
 
-### Environment-Specific Settings
+### Production Database
 
-**Development:** `appsettings.Development.json`
-- Database: `STOM_DB_Dev` (isolated from production)
-- Logging: Debug level
-- Auto-migrate: Enabled
+**File:** `STOM.API/appsettings.json`
 
-**Production:** `appsettings.json`
-- Database: `STOM_DB`
-- Logging: Information level
-- Auto-migrate: Enabled
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.;Database=STOM_DB;Integrated Security=true;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.EntityFrameworkCore": "Information"
+    }
+  }
+}
+```
+
+For remote SQL Server:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=your-sql-server.company.com;Database=STOM_DB;User Id=stom_user;Password=YourSecurePassword;Encrypt=true;TrustServerCertificate=false;"
+  }
+}
+```
 
 ---
 
 ## Automatic Database Initialization
 
-### Startup Flow
+When STOM.API starts, it automatically:
 
-When `STOM.API` starts, `Program.cs` automatically:
+1. **Connects** to SQL Server using the connection string
+2. **Creates database** if it doesn't exist
+3. **Applies migrations** to create/update tables
+4. **Logs progress** for debugging
+5. **Reports success** or errors
 
-1. **Registers DbContext:**
-   ```csharp
-   builder.Services.AddDbContext<StomDbContext>(options =>
-       options.UseSqlServer(...));
-   ```
-
-2. **Enables Retry Logic:**
-   - Up to 3 connection attempts
-   - 5-second delay between retries
-   - Handles transient SQL Server connection failures
-
-3. **Initializes Database:**
-   ```csharp
-   var dbInitService = scope.ServiceProvider.GetRequiredService<DatabaseInitializationService>();
-   await dbInitService.InitializeDatabaseAsync(dbContext);
-   ```
-
-4. **Executes Migrations:**
-   - `dbContext.Database.EnsureCreated()` - Creates DB if missing
-   - `dbContext.Database.Migrate()` - Applies all pending migrations
-   - Logs each migration applied
-
-5. **Verifies Schema:**
-   - Checks that all migrations succeeded
-   - Logs applied migration count
-   - Ready for API requests
-
-### Log Output Example
+### Initialization Log Example
 
 ```
 ========== DATABASE INITIALIZATION START ==========
-Using connection string: Server=(localdb)\mssqllocaldb;Database=STOM_DB;Integrated Security=true;
-Ensuring database exists...
-Database did not exist. Created new database successfully.
+Using connection string: Server=.;Database=STOM_DB_Dev;Integrated Security=true;
 Found 1 pending migrations:
   - 20261109133537_InitialCreate
 Applying pending migrations...
@@ -117,11 +187,11 @@ Total applied migrations: 1
 
 ### Current Migrations
 
-Located in: `STOM.API/Migrations/`
+Location: `STOM.API/Migrations/`
 
-| Migration | Name | Purpose |
+| Migration | Name | Creates |
 |-----------|------|---------|
-| `20261109133537_InitialCreate.cs` | Initial Create | Creates tables: Games, Scores, Tournaments, Competitions, Players, AuditLogs |
+| `20261109133537_InitialCreate.cs` | Initial Create | All core tables: Games, Scores, Tournaments, Competitions, Players, AuditLogs |
 
 ### Viewing Applied Migrations
 
@@ -138,11 +208,16 @@ Response:
   "appliedMigrations": ["20261109133537_InitialCreate"],
   "pendingMigrationsCount": 0,
   "pendingMigrations": [],
-  "timestamp": "2024-11-12T22:00:00Z"
+  "timestamp": "2024-11-12T23:30:00Z"
 }
 ```
 
-**Using dotnet-ef CLI:**
+**Using SQL:**
+```bash
+sqlcmd -S . -d "STOM_DB_Dev" -Q "SELECT * FROM __EFMigrationsHistory"
+```
+
+**Using CLI:**
 ```bash
 cd STOM.API
 dotnet ef migrations list
@@ -150,164 +225,222 @@ dotnet ef migrations list
 
 ---
 
-## Manual Migration Management
+## Adding Database Changes
 
-### Creating a New Migration
+### Step 1: Modify the Model
 
-After modifying the database model (e.g., adding a new entity):
+Edit or create model in `STOM.API/Models/`
+
+```csharp
+public class Tournament
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public DateTime Date { get; set; }
+    // Add new field
+    public string Location { get; set; }
+}
+```
+
+### Step 2: Update DbContext
+
+Add or update DbSet in `STOM.API/Data/StomDbContext.cs`
+
+```csharp
+public DbSet<Tournament> Tournaments { get; set; }
+```
+
+### Step 3: Create Migration
 
 ```bash
-cd C:\Source\Repos\STOM\STOM.API
+cd STOM.API
+dotnet ef migrations add AddTournamentLocation
+```
 
-# Generate migration file
-dotnet ef migrations add AddNewFeature
+This generates a new migration file: `Migrations/[Timestamp]_AddTournamentLocation.cs`
 
-# Apply to database
+### Step 4: Apply Migration
+
+**Option A:** Run application (automatic)
+```bash
+dotnet run
+# Migration applies on startup
+```
+
+**Option B:** Manual update
+```bash
 dotnet ef database update
-```
-
-### Rolling Back to a Previous Migration
-
-```bash
-cd STOM.API
-
-# Revert to a specific migration
-dotnet ef database update 20261109133537_InitialCreate
-
-# Revert all migrations (dangerous - drops schema)
-dotnet ef database update 0
-```
-
-### Removing a Migration (Before Applied)
-
-```bash
-cd STOM.API
-
-# Remove the last migration file (if not applied to database)
-dotnet ef migrations remove
 ```
 
 ---
 
-## Database Verification
+## Viewing Data in SQL Server
 
-### Health Check Endpoints
+### Using SQL Server Management Studio
 
-#### 1. Simple Health Status
+1. **Download & Install:** SQL Server Management Studio (Free)
+2. **Connect:**
+   - Server: `.` or `.\SQLEXPRESS`
+   - Authentication: Windows Authentication
+3. **Browse databases** → `STOM_DB_Dev` or `STOM_DB`
+4. **Query examples:**
+
+```sql
+-- View all tournaments
+SELECT * FROM Tournaments;
+
+-- View all players
+SELECT * FROM Players;
+
+-- View recent audit logs
+SELECT TOP 100 * FROM AuditLogs ORDER BY Timestamp DESC;
+
+-- Count games
+SELECT COUNT(*) as GameCount FROM Games;
+
+-- View pending migrations
+SELECT MigrationId, ProductVersion FROM __EFMigrationsHistory;
+```
+
+### Using SQL Command Line
+
+```bash
+# Run query
+sqlcmd -S . -d "STOM_DB_Dev" -Q "SELECT name FROM sys.tables"
+
+# Output:
+# name
+# AuditLogs
+# Competitions
+# Games
+# Players
+# Scores
+# Tournaments
+```
+
+---
+
+## Health Check Endpoints
+
+### Simple Status Check
+
 ```bash
 curl http://localhost:5000/api/health/status
 ```
 
-**Success Response (200):**
+**Response (Success - 200):**
 ```json
 {
   "status": "Healthy",
   "message": "All systems operational",
-  "timestamp": "2024-11-12T22:00:00Z"
+  "timestamp": "2024-11-12T23:30:00Z"
 }
 ```
 
-**Failure Response (503):**
+**Response (Failure - 503):**
 ```json
 {
   "status": "Unhealthy",
   "message": "Database connection failed",
-  "timestamp": "2024-11-12T22:00:00Z"
+  "timestamp": "2024-11-12T23:30:00Z"
 }
 ```
 
-#### 2. Detailed Database Diagnostics
+### Detailed Database Info
+
 ```bash
 curl http://localhost:5000/api/health/database
 ```
 
-Response shows all applied and pending migrations.
-
-### Manual Verification in SQL Server
-
-**Connect to LocalDB:**
-```
-Server: (localdb)\mssqllocaldb
-Authentication: Windows Authentication
-```
-
-**View Database:**
-```sql
--- Show all databases
-SELECT name FROM sys.databases WHERE name LIKE 'STOM%';
-
--- Show tables in STOM_DB
-USE STOM_DB;
-SELECT name FROM sys.tables;
-
--- Show applied migrations
-SELECT * FROM dbo.__EFMigrationsHistory;
+**Response:**
+```json
+{
+  "canConnect": true,
+  "appliedMigrationsCount": 1,
+  "appliedMigrations": [
+    "20261109133537_InitialCreate"
+  ],
+  "pendingMigrationsCount": 0,
+  "pendingMigrations": [],
+  "timestamp": "2024-11-12T23:30:00Z"
+}
 ```
 
 ---
 
 ## Troubleshooting
 
-### Issue: "Cannot connect to database"
+### Issue: "Cannot connect to Server ."
 
-**Cause:** LocalDB not running or not installed
-
-**Solutions:**
-```powershell
-# Check if LocalDB is installed
-sqllocaldb info
-
-# Start LocalDB instance
-sqllocaldb start
-
-# View instance status
-sqllocaldb info mssqllocaldb
-```
-
-### Issue: "Database already exists" error during creation
-
-**Cause:** Database exists but migrations not applied
+**Cause:** SQL Server is not running or not installed
 
 **Solution:**
 ```bash
-cd STOM.API
-dotnet ef database update
+# Check if running
+Get-Service -Name MSSQL$SQLEXPRESS
+
+# Start if stopped
+Start-Service -Name MSSQL$SQLEXPRESS
+
+# Verify connection
+sqlcmd -S . -Q "SELECT @@VERSION"
 ```
 
-### Issue: Migration fails with "Invalid column name"
+### Issue: "Named Pipes Provider: Could not open connection"
 
-**Cause:** Stale migrations or model mismatch
+**Cause:** Network protocols disabled
+
+**Solution:**
+1. Open SQL Server Configuration Manager
+2. SQL Server Network Configuration → Protocols for SQLEXPRESS
+3. Enable both **Named Pipes** and **TCP/IP**
+4. Restart SQL Server service
+
+### Issue: "Database 'STOM_DB_Dev' already exists"
+
+**Cause:** Migration applying to existing database
+
+**Solution:**
+```bash
+# Option 1: Let it continue (safe)
+# The migration will recognize existing schema
+
+# Option 2: Reset database
+sqlcmd -S . -Q "DROP DATABASE STOM_DB_Dev"
+# Then run application again
+```
+
+### Issue: "Login failed for user"
+
+**Cause:** SQL Server authentication issue
+
+**Solution:**
+```bash
+# For Windows Authentication:
+# - Run as Administrator
+# - Verify your Windows account is in SQL Server logins
+
+# For SQL Authentication:
+# - Verify username/password in connection string
+# - Check user exists in SQL Server:
+sqlcmd -S . -U sa -P YourPassword -Q "SELECT name FROM sys.sysusers"
+```
+
+### Issue: "Migration not applying"
+
+**Cause:** Pending migrations not executing
 
 **Solution:**
 ```bash
 # Check pending migrations
+cd STOM.API
 dotnet ef migrations list
 
-# View migration details
-code STOM.API/Migrations/<MigrationName>.cs
+# Apply manually
+dotnet ef database update
 
-# Remove and recreate if needed
-dotnet ef migrations remove
-dotnet ef migrations add <MigrationName>
-```
-
-### Issue: "Login failed" error
-
-**Cause:** SQL Server authentication or permission issue
-
-**For Development:** Ensure Windows Authentication is enabled and you're in the correct Windows user
-
-**For Production:** Verify SQL login credentials in connection string
-
-### Issue: Application starts but database is empty
-
-**Cause:** Migrations didn't apply
-
-**Solution:** Check application logs for initialization errors:
-```bash
-# Run with verbose logging
-set ASPNETCORE_ENVIRONMENT=Development
-dotnet run --verbosity detailed
+# Verify applied
+sqlcmd -S . -d "STOM_DB_Dev" -Q "SELECT * FROM __EFMigrationsHistory"
 ```
 
 ---
@@ -316,106 +449,109 @@ dotnet run --verbosity detailed
 
 ### Pre-Deployment Checklist
 
-- ✅ All migrations created and tested locally
-- ✅ Connection string updated for production SQL Server
-- ✅ SQL Server login and permissions configured
-- ✅ Database backup plan in place
-- ✅ Network connectivity from app server to SQL Server verified
+- ✅ SQL Server 2019+ installed on production server
+- ✅ Database backup strategy in place
+- ✅ Connection string verified and secure
+- ✅ SQL login created with appropriate permissions
+- ✅ Network connectivity tested
 
 ### Deployment Steps
 
-1. **Update Connection String:**
+1. **Update Connection String**
    ```json
+   // STOM.API/appsettings.json
    {
      "ConnectionStrings": {
-       "DefaultConnection": "Server=production-sql.example.com;Database=STOM_DB;User Id=stom_user;Password=YourSecurePassword;"
+       "DefaultConnection": "Server=prod-sql.company.com;Database=STOM_DB;User Id=stom_user;Password=YourSecurePassword;Encrypt=true;"
      }
    }
    ```
 
-2. **Deploy Application:**
+2. **Build Release**
    ```bash
-   dotnet publish -c Release
-   # Copy to production server
+   cd C:\Source\Repos\STOM
+   dotnet publish -c Release -o ./publish
    ```
 
-3. **Run Application:**
-   - Database will be created automatically
-   - Migrations will be applied on first startup
-   - Monitor logs for initialization success
+3. **Deploy to Server**
+   - Copy `publish` folder to production server
+   - Set appropriate permissions
 
-4. **Verify:**
+4. **Run Application**
    ```bash
-   curl https://your-app.com/api/health/status
-   curl https://your-app.com/api/health/database
+   cd publish
+   dotnet STOM.API.dll
    ```
 
-### Backup Strategy
+5. **Verify**
+   ```bash
+   # Test health endpoint
+   curl https://your-stom-app.com/api/health/status
+   
+   # Should return 200 with "Healthy" status
+   ```
 
-**SQL Server Backups:**
+---
+
+## Backup Strategy
+
+### Development Backup
+
+```bash
+# Backup development database
+sqlcmd -S . -Q "BACKUP DATABASE [STOM_DB_Dev] TO DISK = 'C:\Backups\STOM_DB_Dev.bak' WITH INIT, COMPRESSION;"
+
+# Restore
+sqlcmd -S . -Q "RESTORE DATABASE [STOM_DB_Dev] FROM DISK = 'C:\Backups\STOM_DB_Dev.bak' WITH REPLACE;"
+```
+
+### Production Backup (Recommended)
+
+**Automated SQL Agent Job:**
 ```sql
--- Full backup
+-- Backup every night at 2 AM
+CREATE JOB backup_stom_db
+...
 BACKUP DATABASE [STOM_DB] 
-TO DISK = N'C:\Backups\STOM_DB_Full.bak'
-WITH INIT, COMPRESSION;
+TO DISK = '\\backup-server\sql\STOM_DB_$(DATE).bak'
+WITH INIT, COMPRESSION, STATS = 10;
+```
 
--- Transaction log backup (regular intervals)
-BACKUP LOG [STOM_DB]
-TO DISK = N'C:\Backups\STOM_DB_Log.trn'
-WITH INIT;
+**Manual Backup:**
+```bash
+sqlcmd -S your-sql-server -U stom_user -P YourPassword -Q "BACKUP DATABASE [STOM_DB] TO DISK = '\\backup-server\STOM_DB.bak' WITH INIT, COMPRESSION;"
 ```
 
 ---
 
-## Performance Optimization
+## Performance Tips
 
 ### Indexes
 
-The `StomDbContext.OnModelCreating()` automatically creates:
-- Descending index on `AuditLog.Timestamp`
-- Index on `AuditLog.PerformedBy`
+Already created by Entity Framework:
+- `AuditLogs.Timestamp` (descending)
+- `AuditLogs.PerformedBy`
 
 ### Connection Pooling
 
-Connection pooling is automatically enabled with recommended defaults.
+Automatically managed with optimal settings:
+- Max Pool Size: 100
+- Connection Timeout: 30 seconds
 
-### Query Store
+### Query Optimization
 
-Enabled in production to track query performance:
+Enable Query Store for production:
 ```sql
 ALTER DATABASE [STOM_DB] SET QUERY_STORE = ON;
+ALTER DATABASE [STOM_DB] SET QUERY_STORE (OPERATION_MODE = READ_WRITE);
 ```
 
 ---
 
-## Related Files
+## Support & Related Documentation
 
-- **Setup Code:** `STOM.API/Program.cs`
-- **DB Context:** `STOM.API/Data/StomDbContext.cs`
-- **Initialization Service:** `STOM.API/Services/DatabaseInitializationService.cs`
-- **Health Controller:** `STOM.API/Controllers/HealthController.cs`
-- **SQL Reference:** `SQL_SERVER_SETUP.sql`
-- **DB Setup Doc:** `DB_SETUP.md` (Offline-capable architecture)
-
----
-
-## FAQ
-
-**Q: Do I need to manually create the database?**
-A: No. It's created automatically on first startup.
-
-**Q: Can multiple instances share the database?**
-A: Yes. Multiple STOM.API instances can safely connect to the same database.
-
-**Q: How do I backup the database?**
-A: Use SQL Server backup tools or the scripts in `SQL_SERVER_SETUP.sql`.
-
-**Q: Can I use a different SQL Server version?**
-A: Yes. Update the connection string to point to your SQL Server instance.
-
-**Q: What if migrations fail?**
-A: The application logs the error and halts startup to prevent data inconsistency.
-
-**Q: How do I reset the database?**
-A: Delete the database from SQL Server, then restart the application.
+- **SQL Server Setup (Dev + Prod):** `SQL_SERVER_SETUP_DEV_PROD.md` ← Full reference
+- **Quick Reference:** `QUICK_REFERENCE.md`
+- **Database Architecture:** `DB_SETUP.md`
+- **Offline Sync Strategy:** `DB_SETUP.md`
 

@@ -21,7 +21,8 @@ public class DatabaseInitializationService
     }
 
     /// <summary>
-    /// Initializes the database by ensuring it exists and applying all pending migrations.
+    /// Initializes the database by applying all pending migrations.
+    /// This handles both database creation and schema updates.
     /// This is called on application startup.
     /// </summary>
     public async Task InitializeDatabaseAsync(StomDbContext dbContext)
@@ -34,19 +35,7 @@ public class DatabaseInitializationService
             _logger.LogInformation("Using connection string: {ConnectionString}", 
                 MaskConnectionString(connectionString));
 
-            // Ensure database exists
-            _logger.LogInformation("Ensuring database exists...");
-            var created = dbContext.Database.EnsureCreated();
-            if (created)
-            {
-                _logger.LogInformation("Database did not exist. Created new database successfully.");
-            }
-            else
-            {
-                _logger.LogInformation("Database already exists.");
-            }
-
-            // Check for pending migrations
+            // Check for pending migrations before applying
             var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
             if (pendingMigrations.Count > 0)
             {
@@ -56,7 +45,7 @@ public class DatabaseInitializationService
                     _logger.LogInformation("  - {MigrationName}", migration);
                 }
 
-                // Apply migrations
+                // Apply migrations (creates database and schema if needed)
                 _logger.LogInformation("Applying pending migrations...");
                 await dbContext.Database.MigrateAsync();
                 _logger.LogInformation("All pending migrations applied successfully.");
