@@ -27,6 +27,13 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// Apply pending migrations automatically on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<StomDbContext>();
+    dbContext.Database.Migrate();
+}
+
 app.UseCors("AllowBlazor");
 
 if (app.Environment.IsDevelopment())
