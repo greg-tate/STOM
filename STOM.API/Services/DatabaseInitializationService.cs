@@ -11,13 +11,19 @@ public class DatabaseInitializationService
 {
     private readonly ILogger<DatabaseInitializationService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly AuditService _auditService;
+    private readonly StomDbContext _context;
 
     public DatabaseInitializationService(
         ILogger<DatabaseInitializationService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        AuditService auditService,
+        StomDbContext context)
     {
         _logger = logger;
         _configuration = configuration;
+        _auditService = auditService;
+        _context = context;
     }
 
     /// <summary>
@@ -30,6 +36,7 @@ public class DatabaseInitializationService
         try
         {
             _logger.LogInformation("========== DATABASE INITIALIZATION START ==========");
+            await _auditService.LogAsync("DATABASE_INIT_START", null, "System", "Database initialization started");
             
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
             _logger.LogInformation("Using connection string: {ConnectionString}", 
@@ -40,6 +47,9 @@ public class DatabaseInitializationService
             if (pendingMigrations.Count > 0)
             {
                 _logger.LogInformation("Found {MigrationCount} pending migrations:", pendingMigrations.Count);
+                var migrationDetails = string.Join(", ", pendingMigrations);
+                await _auditService.LogAsync("MIGRATIONS_PENDING", null, "System", $"Found {pendingMigrations.Count} pending migrations: {migrationDetails}");
+                
                 foreach (var migration in pendingMigrations)
                 {
                     _logger.LogInformation("  - {MigrationName}", migration);
@@ -47,12 +57,16 @@ public class DatabaseInitializationService
 
                 // Apply migrations (creates database and schema if needed)
                 _logger.LogInformation("Applying pending migrations...");
+                await _auditService.LogAsync("MIGRATIONS_APPLYING", null, "System", $"Applying {pendingMigrations.Count} pending migrations");
+                
                 await dbContext.Database.MigrateAsync();
                 _logger.LogInformation("All pending migrations applied successfully.");
+                await _auditService.LogAsync("MIGRATIONS_APPLIED", null, "System", "All pending migrations applied successfully");
             }
             else
             {
                 _logger.LogInformation("No pending migrations. Database schema is up to date.");
+                await _auditService.LogAsync("MIGRATIONS_NONE", null, "System", "No pending migrations found");
             }
 
             // Seed test data if database is empty
@@ -61,6 +75,7 @@ public class DatabaseInitializationService
             // Log applied migrations
             var appliedMigrations = (await dbContext.Database.GetAppliedMigrationsAsync()).ToList();
             _logger.LogInformation("Total applied migrations: {AppliedCount}", appliedMigrations.Count);
+            await _auditService.LogAsync("DATABASE_INIT_SUCCESS", null, "System", $"Database initialization successful with {appliedMigrations.Count} applied migrations");
 
             _logger.LogInformation("========== DATABASE INITIALIZATION SUCCESS ==========");
         }
@@ -70,6 +85,8 @@ public class DatabaseInitializationService
                 "========== DATABASE INITIALIZATION FAILED ==========\n" +
                 "An error occurred during database initialization. The application will continue but database operations may fail.\n" +
                 "Error: {ErrorMessage}", ex.Message);
+            
+            await _auditService.LogAsync("DATABASE_INIT_FAILED", null, "System", $"Database initialization failed: {ex.Message}");
             
             // Re-throw if in development, silently fail in production to avoid startup crash
             if (!IsDevelopment())
@@ -156,11 +173,12 @@ public class DatabaseInitializationService
             if (await dbContext.Games.AnyAsync())
             {
                 _logger.LogInformation("Database already contains data. Skipping seed.");
+                await _auditService.LogAsync("SEED_SKIPPED", null, "System", "Database already contains data, skipping seed");
                 return;
             }
 
             _logger.LogInformation("Seeding test data...");
-
+            await _auditService.LogAsync("SEED_START", null, "System", "Starting database seed with test data");
 
             // Create test Players
             var player = new Models.Player
@@ -252,10 +270,12 @@ public class DatabaseInitializationService
             await dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Test data seeded successfully. Created 2 games with last ID {GameId}", game.Id);
+            await _auditService.LogAsync("SEED_SUCCESS", game.Id, "System", $"Test data seeded successfully. Created 2 games and 4 scores");
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to seed test data: {ErrorMessage}", ex.Message);
+            await _auditService.LogAsync("SEED_FAILED", null, "System", $"Failed to seed test data: {ex.Message}");
         }
     }
 }
