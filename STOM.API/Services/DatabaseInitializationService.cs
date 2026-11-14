@@ -55,6 +55,9 @@ public class DatabaseInitializationService
                 _logger.LogInformation("No pending migrations. Database schema is up to date.");
             }
 
+            // Seed test data if database is empty
+            await SeedTestDataAsync(dbContext);
+
             // Log applied migrations
             var appliedMigrations = (await dbContext.Database.GetAppliedMigrationsAsync()).ToList();
             _logger.LogInformation("Total applied migrations: {AppliedCount}", appliedMigrations.Count);
@@ -140,6 +143,120 @@ public class DatabaseInitializationService
     {
         var env = _configuration["ASPNETCORE_ENVIRONMENT"];
         return env?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? false;
+    }
+
+    /// <summary>
+    /// Seeds test data into the database if it's empty.
+    /// </summary>
+    private async Task SeedTestDataAsync(StomDbContext dbContext)
+    {
+        try
+        {
+            // Only seed if tables are empty
+            if (await dbContext.Games.AnyAsync())
+            {
+                _logger.LogInformation("Database already contains data. Skipping seed.");
+                return;
+            }
+
+            _logger.LogInformation("Seeding test data...");
+
+
+            // Create test Players
+            var player = new Models.Player
+            {
+                Name = "Test Player 1",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Players.AddAsync(player);
+
+            player = new Models.Player
+            {
+                Name = "Test Player 2",
+                CreatedAt = DateTime.UtcNow.AddDays(1)
+            };
+            await dbContext.Players.AddAsync(player);
+            await dbContext.SaveChangesAsync();
+
+
+            // Create test Competitions
+            var competition = new Models.Competition
+            {
+                Name = "Test Competition 1",
+                Date = DateTime.UtcNow,
+                Status = "Active"
+            };
+            await dbContext.Competitions.AddAsync(competition);
+
+            competition = new Models.Competition
+            {
+                Name = "Test Competition 2",
+                Date = DateTime.UtcNow.AddDays(1),
+                Status = "Active"
+            };
+            await dbContext.Competitions.AddAsync(competition);
+            await dbContext.SaveChangesAsync();
+
+
+            // Create test Tournaments
+            var tournament = new Models.Tournament
+            {
+                Name = "Test Tournament 1",
+                Date = DateTime.UtcNow,
+                Status = "Active"
+            };
+            await dbContext.Tournaments.AddAsync(tournament);
+
+            tournament = new Models.Tournament
+            {
+                Name = "Test Tournament 2",
+                Date = DateTime.UtcNow.AddDays(1),
+                Status = "Active"
+            };
+            await dbContext.Tournaments.AddAsync(tournament);
+            await dbContext.SaveChangesAsync();
+
+
+            // Create test Games / Scores
+            Models.Game game = new()
+            {
+                Name = "Test Game 1",
+                CreatedAt = DateTime.UtcNow
+            };
+            await dbContext.Games.AddAsync(game);
+            await dbContext.SaveChangesAsync();
+
+            List<Models.Score> scores =
+            [
+                new() { GameId = game.Id, Value = 10, CreatedAt = DateTime.UtcNow },
+                new() { GameId = game.Id, Value =  8, CreatedAt = DateTime.UtcNow }
+            ];
+            await dbContext.Scores.AddRangeAsync(scores);
+            await dbContext.SaveChangesAsync();
+
+            // Create test scores for this Game
+            game = new()
+            {
+                Name = "Test Game 2",
+                CreatedAt = DateTime.UtcNow.AddHours(1)
+            };
+            await dbContext.Games.AddAsync(game);
+            await dbContext.SaveChangesAsync();
+
+            scores =
+            [
+                new() { GameId = game.Id, Value =  5, CreatedAt = DateTime.UtcNow.AddHours(1) },
+                new() { GameId = game.Id, Value = 17, CreatedAt = DateTime.UtcNow.AddHours(1) }
+            ];
+            await dbContext.Scores.AddRangeAsync(scores);
+            await dbContext.SaveChangesAsync();
+
+            _logger.LogInformation("Test data seeded successfully. Created 2 games with last ID {GameId}", game.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to seed test data: {ErrorMessage}", ex.Message);
+        }
     }
 }
 
