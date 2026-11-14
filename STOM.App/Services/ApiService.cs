@@ -5,11 +5,12 @@ namespace STOM.App.Services;
 public class ApiService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<ApiService> _logger;
 
-    public ApiService(HttpClient httpClient)
+    public ApiService(HttpClient httpClient, ILogger<ApiService> logger)
     {
         _httpClient = httpClient;
-        _httpClient.BaseAddress = new Uri("http://localhost:5022/api/");
+        _logger = logger;
     }
 
     public async Task<List<Game>> GetAllGamesAsync()
@@ -18,8 +19,9 @@ public class ApiService
         {
             return await _httpClient.GetFromJsonAsync<List<Game>>("games") ?? new();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error fetching all games");
             return new();
         }
     }
@@ -28,10 +30,13 @@ public class ApiService
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<Game>($"games/{gameId}");
+            var result = await _httpClient.GetFromJsonAsync<Game>($"games/{gameId}");
+            _logger.LogInformation("Successfully fetched game {GameId}", gameId);
+            return result;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error fetching game {GameId}", gameId);
             return null;
         }
     }
@@ -42,10 +47,13 @@ public class ApiService
         {
             var request = new AddScoreRequest { Value = value };
             var response = await _httpClient.PostAsJsonAsync($"games/{gameId}/scores", request);
-            return await response.Content.ReadFromJsonAsync<Score>();
+            var result = await response.Content.ReadFromJsonAsync<Score>();
+            _logger.LogInformation("Successfully added score for game {GameId}", gameId);
+            return result;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error adding score for game {GameId}", gameId);
             return null;
         }
     }
