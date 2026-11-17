@@ -5,46 +5,80 @@ namespace STOM.App.Services;
 public class SyncService
 {
     private readonly ApiService _apiService;
-    private readonly List<Score> _pendingScores = new();
+    private readonly OfflineStorageService _offlineStorageService;
+    private readonly OfflineCapabilityService _offlineCapabilityService;
+    private readonly ILogger<SyncService> _logger;
 
-    public SyncService(ApiService apiService)
+    public event EventHandler<string>? SyncStatusChanged;
+
+    public SyncService(
+        ApiService apiService,
+        OfflineStorageService offlineStorageService,
+        OfflineCapabilityService offlineCapabilityService,
+        ILogger<SyncService> logger)
     {
         _apiService = apiService;
+        _offlineStorageService = offlineStorageService;
+        _offlineCapabilityService = offlineCapabilityService;
+        _logger = logger;
+
+        _apiService.SyncStatusChanged += (s, msg) => SyncStatusChanged?.Invoke(this, msg);
+    }
+
+    public async Task InitializeAsync()
+    {
+        await _offlineStorageService.InitializeAsync();
+        _offlineCapabilityService.OnlineStatusChanged += async (s, isOnline) =>
+        {
+            if (isOnline)
+            {
+                _logger.LogInformation("Network connection restored");
+                SyncStatusChanged?.Invoke(this, "Connection restored, syncing...");
+                await TrySyncAsync();
+            }
+            else
+            {
+                _logger.LogInformation("Network connection lost");
+                SyncStatusChanged?.Invoke(this, "Offline mode");
+            }
+        };
+
+        var pendingCount = GetPendingCount();
+        if (pendingCount > 0)
+        {
+            _logger.LogInformation("Found {Count} pending scores from previous session", pendingCount);
+        }
     }
 
     public async Task SaveScoreOfflineAsync(int gameId, int value)
     {
-        var score = new Score { GameId = gameId, Value = value };
-        _pendingScores.Add(score);
-
-        await TrySyncAsync();
+        await _offlineStorageService.AddPendingScoreAsync(gameId, value);
+        _logger.LogInformation("Score queued for game {GameId}", gameId);
     }
 
     public async Task TrySyncAsync()
     {
-        var toRemove = new List<Score>();
-
-        foreach (var score in _pendingScores)
+        if (!_offlineCapabilityService.IsOnline)
         {
-            try
-            {
-                var result = await _apiService.AddScoreAsync(score.GameId, score.Value);
-                if (result != null)
-                {
-                    toRemove.Add(score);
-                }
-            }
-            catch
-            {
-                break;
-            }
+            _logger.LogInformation("Still offline, cannot sync");
+            return;
         }
 
-        foreach (var score in toRemove)
+        var success = await _apiService.SyncPendingScoresAsync();
+
+        if (success && GetPendingCount() == 0)
         {
-            _pendingScores.Remove(score);
+            _logger.LogInformation("All scores synced successfully");
         }
     }
 
-    public int GetPendingCount() => _pendingScores.Count;
+    public int GetPendingCount() => _offlineStorageService.GetPendingCount();
+
+    public List<PendingScore> GetPendingScores() => _offlineStorageService.GetPendingScores();
+
+    public async Task ClearOfflineDataAsync()
+    {
+        await _offlineStorageService.ClearAllAsync();
+        _logger.LogInformation("Offline data cleared");
+    }
 }

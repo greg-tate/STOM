@@ -1,4 +1,8 @@
 ﻿@inherits LayoutComponentBase
+@inject OfflineCapabilityService OfflineCapabilityService
+@inject SyncService SyncService
+@inject IJSRuntime JSRuntime
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -6,7 +10,32 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+                <div class="sync-indicator">
+                    <span class="@StatusClass" title="@StatusTitle">
+                        @if (OfflineCapabilityService.IsOffline)
+                        {
+                            <span class="badge bg-warning">🌐 Offline</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">🌐 Online</span>
+                        }
+                    </span>
+                    @if (PendingCount > 0)
+                    {
+                        <span class="badge bg-info ms-2" title="Pending scores to sync">
+                            📤 @PendingCount pending
+                        </span>
+                        <button class="btn btn-sm btn-primary ms-2" @onclick="SyncNow">Sync Now</button>
+                    }
+                    @if (!string.IsNullOrEmpty(SyncStatus))
+                    {
+                        <small class="text-muted ms-2">@SyncStatus</small>
+                    }
+                </div>
+            </div>
         </div>
 
         <article class="content px-4">
@@ -14,3 +43,52 @@
         </article>
     </main>
 </div>
+
+@code {
+    private int PendingCount = 0;
+    private string SyncStatus = string.Empty;
+    private string StatusClass = string.Empty;
+    private string StatusTitle = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        PendingCount = SyncService.GetPendingCount();
+
+        SyncService.SyncStatusChanged += (s, msg) =>
+        {
+            SyncStatus = msg;
+            PendingCount = SyncService.GetPendingCount();
+            StateHasChanged();
+        };
+
+        OfflineCapabilityService.OnlineStatusChanged += (s, isOnline) =>
+        {
+            UpdateStatus();
+            StateHasChanged();
+        };
+
+        UpdateStatus();
+        await base.OnInitializedAsync();
+    }
+
+    private void UpdateStatus()
+    {
+        StatusClass = OfflineCapabilityService.IsOnline ? "text-success" : "text-warning";
+        StatusTitle = OfflineCapabilityService.IsOnline ? "Connected to network" : "No network connection";
+    }
+
+    private async Task SyncNow()
+    {
+        SyncStatus = "Syncing...";
+        await SyncService.TrySyncAsync();
+    }
+}
+
+<style>
+    .sync-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+</style>
+

@@ -19,6 +19,9 @@ public class Score
     
     [JsonIgnore]
     public Game? Game { get; set; }
+
+    [JsonIgnore]
+    public bool IsPending { get; set; } = false;
 }
 
 public class Tournament

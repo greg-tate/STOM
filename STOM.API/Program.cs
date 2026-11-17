@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using STOM.API.Data;
 using STOM.API.Services;
 
@@ -6,6 +7,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() 
+    { 
+        Title = "STOM API", 
+        Version = "v1",
+        Description = "Sports Tournament Operations Management API"
+    });
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazor", policy =>
@@ -58,6 +68,16 @@ app.UseCors("AllowBlazor");
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger(c =>
+    {
+        c.RouteTemplate = "swagger/{documentName}/swagger.json";
+    });
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "STOM API v1");
+        c.RoutePrefix = "swagger";
+    });
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
