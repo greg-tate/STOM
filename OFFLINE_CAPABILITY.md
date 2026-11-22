@@ -3,6 +3,7 @@
 ## 🎯 Overview
 
 STOM now supports **complete offline functionality** for game scoring pages. Scorers can:
+
 - ✅ View games while offline (cached from last session)
 - ✅ Submit scores while offline (queued in local storage)
 - ✅ See which scores are pending sync
@@ -51,7 +52,8 @@ STOM now supports **complete offline functionality** for game scoring pages. Sco
 ## 🧪 Testing Offline Capability
 
 ### Method 1: Chrome DevTools (Recommended)
-1. Open http://localhost:5049 in Chrome
+
+1. Open <http://localhost:5049> in Chrome
 2. Navigate to a game (/score/1)
 3. Open DevTools → Network tab
 4. Check "Offline" checkbox ⚠️
@@ -68,16 +70,19 @@ STOM now supports **complete offline functionality** for game scoring pages. Sco
    - "✓ Synced" badges appear on pending scores
 
 ### Method 2: Network Throttling (Advanced)
+
 1. DevTools → Network tab
 2. Throttle connection (Slow 3G or Offline)
 3. Try page navigation and scoring
 4. Observe caching behavior
 
 ### Method 3: Manual Browser Offline Mode
+
 1. F12 → Network tab
 2. ☑️ "Offline" checkbox
 3. Try submitting scores
 4. See pending queue in browser console:
+
    ```javascript
    JSON.parse(localStorage.getItem('stom_pending_scores'))
    ```
@@ -85,12 +90,14 @@ STOM now supports **complete offline functionality** for game scoring pages. Sco
 ## 📊 UI Indicators
 
 ### Top Navigation Bar
+
 - **Online:** 🌐 Green "Online" badge
 - **Offline:** 🌐 Yellow "Offline" badge
 - **Pending Scores:** 📤 Blue badge showing count
 - **Sync Status:** Small text showing sync state
 
 ### Scorer Page
+
 - **Offline Alert:** Yellow warning box
 - **Submit Button:** Changes text to "Submit (Offline)"
 - **Score Table:**
@@ -99,13 +106,14 @@ STOM now supports **complete offline functionality** for game scoring pages. Sco
   - Row highlighted in yellow for pending items
 
 ### Sync Now Button
+
 - Appears only when pending scores exist
 - Manual sync trigger
 - Shows sync progress
 
 ## 🔄 Sync Flow
 
-```
+```mermaid
 User submits score
   ↓
 Check if online
@@ -126,6 +134,7 @@ Remaining: Show remaining count
 ## 💾 localStorage Schema
 
 ### Pending Scores (stom_pending_scores)
+
 ```json
 [
   {
@@ -139,6 +148,7 @@ Remaining: Show remaining count
 ```
 
 ### Game Cache (stom_game_*)
+
 ```json
 {
   "id": 1,
@@ -149,13 +159,15 @@ Remaining: Show remaining count
 ```
 
 ### Cache Timestamps (stom_cache_time_*)
+
 - ISO 8601 string of when data was cached
 - Used for 1-hour expiration logic
 
 ## 🚀 Usage Examples
 
 ### As a Scorer (UI Usage)
-1. Go to http://localhost:5049
+
+1. Go to <http://localhost:5049>
 2. Select a game to score
 3. If offline:
    - Enter score and submit
@@ -167,6 +179,7 @@ Remaining: Show remaining count
    - Instant server confirmation
 
 ### Developer Console (Testing)
+
 ```javascript
 // Check pending scores
 JSON.parse(localStorage.getItem('stom_pending_scores'))
@@ -187,19 +200,24 @@ Object.keys(localStorage)
 ## 🔧 Configuration
 
 ### Cache Duration
+
 Edit `CacheService.cs`:
+
 ```csharp
 private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
 ```
 
 ### Storage Key Prefixes
+
 - Pending scores: `stom_pending_scores`
 - Game cache: `stom_game_{gameId}`
 - All cache: `stom_games_cache`
 - Timestamps: `stom_cache_time_{key}`
 
 ### Service Registration
+
 All services are auto-registered in `Program.cs`:
+
 ```csharp
 builder.Services.AddScoped<CacheService>();
 builder.Services.AddScoped<OfflineStorageService>();
@@ -209,19 +227,22 @@ builder.Services.AddScoped<OfflineCapabilityService>();
 ## 📱 Mobile Testing
 
 ### iPhone Safari
-1. Open http://localhost:5049 (from computer IP)
+
+1. Open <http://localhost:5049> (from computer IP)
 2. Airplane mode: ON
 3. Submit scores (should queue)
 4. Airplane mode: OFF
 5. Scores sync automatically ✅
 
 ### Android Chrome
+
 1. Same flow as iPhone
 2. Can also test with DevTools remote debugging
 
 ## 🛠️ Service Worker
 
 A service worker is registered (`wwwroot/service-worker.js`):
+
 - Caches static assets
 - Network-first strategy for GET requests
 - Falls back to `index.html` for failed navigations
@@ -230,23 +251,28 @@ A service worker is registered (`wwwroot/service-worker.js`):
 ## 📋 Implementation Files
 
 **New Services:**
+
 - `Services/OfflineCapabilityService.cs` - 44 lines
 - `Services/CacheService.cs` - 85 lines
 - `Services/OfflineStorageService.cs` - 103 lines
 
 **Enhanced Services:**
+
 - `Services/ApiService.cs` - Added caching + offline queue
 - `Services/SyncService.cs` - Rewired with new services
 
 **UI Updates:**
+
 - `Pages/Scorer/GameScore.razor` - Added offline indicators
 - `Layout/MainLayout.razor` - Added sync status bar
 
 **Client Scripts:**
+
 - `wwwroot/offline-support.js` - Browser API integration
 - `wwwroot/service-worker.js` - PWA support
 
 **Other:**
+
 - `wwwroot/index.html` - Script registration
 
 ## ✅ Tested Features
@@ -264,22 +290,26 @@ A service worker is registered (`wwwroot/service-worker.js`):
 ## 🐛 Troubleshooting
 
 ### Scores not syncing
+
 1. Check DevTools Console for errors
-2. Verify API is running: http://localhost:5022/api/games
+2. Verify API is running: <http://localhost:5022/api/games>
 3. Check Network tab for failed POST requests
 4. Clear localStorage and try again
 
 ### Cache not working
+
 1. Verify cache service initialized
 2. Check localStorage keys in DevTools
 3. Confirm cache timestamps haven't expired
 
 ### Offline status not changing
+
 1. Verify offline-support.js loaded
 2. Check DevTools Console for JS errors
 3. Try F12 refresh (Ctrl+Shift+R)
 
 ### Service Worker issues
+
 1. Check DevTools → Application → Service Workers
 2. Unregister and refresh if corrupted
 3. Check browser console for registration errors
