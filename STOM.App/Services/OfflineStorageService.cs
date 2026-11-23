@@ -1,6 +1,4 @@
 using STOM.App.Models;
-using System.Text.Json;
-using Microsoft.JSInterop;
 
 namespace STOM.App.Services;
 
@@ -15,8 +13,14 @@ public class PendingScore
 
 public class OfflineStorageService
 {
-    private const string StorageKey = "stom_pending_scores";
+    private const string StoreName = "pending_scores";
     private List<PendingScore> _pendingScores = new();
+    private readonly IndexedDbService _indexedDb;
+
+    public OfflineStorageService(IndexedDbService indexedDb)
+    {
+        _indexedDb = indexedDb;
+    }
 
     public async Task InitializeAsync()
     {
@@ -27,28 +31,12 @@ public class OfflineStorageService
     {
         try
         {
-            var json = await JS.InvokeAsync<string>("localStorage.getItem", StorageKey);
-            if (!string.IsNullOrEmpty(json))
-            {
-                _pendingScores = JsonSerializer.Deserialize<List<PendingScore>>(json) ?? new();
-            }
-        }
-        catch
-        {
-            _pendingScores = new();
-        }
-    }
-
-    private async Task SavePendingScoresAsync()
-    {
-        try
-        {
-            var json = JsonSerializer.Serialize(_pendingScores);
-            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+            _pendingScores = await _indexedDb.GetAllAsync<PendingScore>(StoreName);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving pending scores: {ex.Message}");
+            Console.WriteLine($"Error loading pending scores from IndexedDB: {ex.Message}");
+            _pendingScores = new();
         }
     }
 
@@ -56,7 +44,15 @@ public class OfflineStorageService
     {
         var score = new PendingScore { GameId = gameId, Value = value };
         _pendingScores.Add(score);
-        await SavePendingScoresAsync();
+        
+        try
+        {
+            await _indexedDb.SetAsync(StoreName, score.Id, score);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving pending score to IndexedDB: {ex.Message}");
+        }
     }
 
     public async Task MarkSyncedAsync(string scoreId)
@@ -65,14 +61,30 @@ public class OfflineStorageService
         if (score != null)
         {
             score.Synced = true;
-            await SavePendingScoresAsync();
+            
+            try
+            {
+                await _indexedDb.SetAsync(StoreName, scoreId, score);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error marking score as synced: {ex.Message}");
+            }
         }
     }
 
     public async Task RemoveSyncedAsync(string scoreId)
     {
         _pendingScores.RemoveAll(s => s.Id == scoreId && s.Synced);
-        await SavePendingScoresAsync();
+        
+        try
+        {
+            await _indexedDb.DeleteAsync(StoreName, scoreId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing synced score: {ex.Message}");
+        }
     }
 
     public List<PendingScore> GetPendingScores()
@@ -93,13 +105,14 @@ public class OfflineStorageService
     public async Task ClearAllAsync()
     {
         _pendingScores.Clear();
-        await SavePendingScoresAsync();
-    }
-
-    private static IJSRuntime JS { get; set; } = default!;
-
-    public static void SetJsRuntime(IJSRuntime jsRuntime)
-    {
-        JS = jsRuntime;
+        
+        try
+        {
+            await _indexedDb.ClearStoreAsync(StoreName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error clearing pending scores: {ex.Message}");
+        }
     }
 }

@@ -1,13 +1,28 @@
-// Register Service Worker
+// Register Service Worker (deferred to avoid blocking main thread)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => {
-                console.log('Service Worker registered successfully:', reg);
-            })
-            .catch(err => {
-                console.log('Service Worker registration failed:', err);
+        // Use requestIdleCallback if available, otherwise defer with setTimeout
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => {
+                        console.log('Service Worker registered successfully:', reg);
+                    })
+                    .catch(err => {
+                        console.log('Service Worker registration failed:', err);
+                    });
             });
+        } else {
+            setTimeout(() => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => {
+                        console.log('Service Worker registered successfully:', reg);
+                    })
+                    .catch(err => {
+                        console.log('Service Worker registration failed:', err);
+                    });
+            }, 0);
+        }
     });
 }
 

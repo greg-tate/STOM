@@ -54,12 +54,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await OfflineCapabilityService.InitializeAsync();
-        
-        // Debug: Log current status
-        var isOnline = await JSRuntime.InvokeAsync<bool>("isOnline");
-        Console.WriteLine($"[DEBUG] InitializeAsync: navigator.onLine = {isOnline}");
-        
         PendingCount = SyncService.GetPendingCount();
 
         SyncService.SyncStatusChanged += (s, msg) =>
@@ -78,6 +72,20 @@
 
         UpdateStatus();
         await base.OnInitializedAsync();
+        
+        // Defer heavy initialization to background - doesn't block render
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await OfflineCapabilityService.InitializeAsync();
+                Console.WriteLine($"[DEBUG] InitializeAsync: OfflineCapabilityService initialized");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] InitializeAsync failed: {ex.Message}");
+            }
+        });
     }
 
     private void UpdateStatus()

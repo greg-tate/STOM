@@ -12,6 +12,7 @@ builder.Services.AddScoped(sp =>
     var apiBaseAddress = $"http://{new Uri(builder.HostEnvironment.BaseAddress).Host}:5022/api/";
     return new HttpClient { BaseAddress = new Uri(apiBaseAddress) };
 });
+builder.Services.AddScoped<IndexedDbService>();
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<AdminApiService>();
 builder.Services.AddScoped<AuthService>();
@@ -21,6 +22,14 @@ builder.Services.AddScoped<OfflineCapabilityService>();
 builder.Services.AddScoped<SyncService>();
 
 var host = builder.Build();
+
+// Initialize IndexedDB
+var indexedDb = host.Services.GetRequiredService<IndexedDbService>();
+await indexedDb.InitializeAsync();
+
+// Initialize offline storage
+var offlineStorage = host.Services.GetRequiredService<OfflineStorageService>();
+await offlineStorage.InitializeAsync();
 
 await host.RunAsync();
 

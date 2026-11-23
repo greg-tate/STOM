@@ -59,7 +59,7 @@
                                     {
                                         <tr class="@(score.IsPending ? "table-warning" : "")">
                                             <td>@score.Value</td>
-                                            <td>@score.CreatedAt.ToShortTimeString()</td>
+                                            <td>@score.CreatedAt.ToLocalTime().ToString("s")</td>
                                             <td>
                                                 @if (score.IsPending)
                                                 {

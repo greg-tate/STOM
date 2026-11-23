@@ -1,36 +1,29 @@
 using STOM.App.Models;
-using System.Text.Json;
-using Microsoft.JSInterop;
 
 namespace STOM.App.Services;
 
 public class CacheService
 {
-    private const string GamesCacheKey = "stom_games_cache";
-    private const string GameCacheKeyPrefix = "stom_game_";
-    private const string CacheTimestampPrefix = "stom_cache_time_";
+    private const string GamesCacheKey = "games_all";
+    private const string CacheDurationMinutes = "60";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
 
-    private IJSRuntime _jsRuntime = default!;
+    private readonly IndexedDbService _indexedDb;
 
-    public CacheService(IJSRuntime jsRuntime)
+    public CacheService(IndexedDbService indexedDb)
     {
-        _jsRuntime = jsRuntime;
+        _indexedDb = indexedDb;
     }
 
     public async Task<List<Game>?> GetCachedGamesAsync()
     {
         try
         {
-            var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", GamesCacheKey);
-            var timeJson = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", $"{CacheTimestampPrefix}games");
-
-            if (!string.IsNullOrEmpty(json) && !string.IsNullOrEmpty(timeJson) && DateTime.TryParse(timeJson, out var cacheTime))
+            var cachedGames = await _indexedDb.GetAsync<CachedItem<List<Game>>>("game_cache", GamesCacheKey);
+            
+            if (cachedGames != null && DateTime.UtcNow - cachedGames.CacheTime < CacheDuration)
             {
-                if (DateTime.UtcNow - cacheTime < CacheDuration)
-                {
-                    return JsonSerializer.Deserialize<List<Game>>(json);
-                }
+                return cachedGames.Data;
             }
         }
         catch (Exception ex)
@@ -45,9 +38,12 @@ public class CacheService
     {
         try
         {
-            var json = JsonSerializer.Serialize(games);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", GamesCacheKey, json);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", $"{CacheTimestampPrefix}games", DateTime.UtcNow.ToString("O"));
+            var cachedItem = new CachedItem<List<Game>>
+            {
+                Data = games,
+                CacheTime = DateTime.UtcNow
+            };
+            await _indexedDb.SetAsync("game_cache", GamesCacheKey, cachedItem);
         }
         catch (Exception ex)
         {
@@ -59,15 +55,11 @@ public class CacheService
     {
         try
         {
-            var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", $"{GameCacheKeyPrefix}{gameId}");
-            var timeJson = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", $"{CacheTimestampPrefix}game_{gameId}");
-
-            if (!string.IsNullOrEmpty(json) && !string.IsNullOrEmpty(timeJson) && DateTime.TryParse(timeJson, out var cacheTime))
+            var cachedGame = await _indexedDb.GetAsync<CachedItem<Game>>("game_cache", $"game_{gameId}");
+            
+            if (cachedGame != null && DateTime.UtcNow - cachedGame.CacheTime < CacheDuration)
             {
-                if (DateTime.UtcNow - cacheTime < CacheDuration)
-                {
-                    return JsonSerializer.Deserialize<Game>(json);
-                }
+                return cachedGame.Data;
             }
         }
         catch (Exception ex)
@@ -82,9 +74,12 @@ public class CacheService
     {
         try
         {
-            var json = JsonSerializer.Serialize(game);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", $"{GameCacheKeyPrefix}{game.Id}", json);
-            await _jsRuntime.InvokeVoidAsync("localStorage.setItem", $"{CacheTimestampPrefix}game_{game.Id}", DateTime.UtcNow.ToString("O"));
+            var cachedItem = new CachedItem<Game>
+            {
+                Data = game,
+                CacheTime = DateTime.UtcNow
+            };
+            await _indexedDb.SetAsync("game_cache", $"game_{game.Id}", cachedItem);
         }
         catch (Exception ex)
         {
@@ -96,16 +91,17 @@ public class CacheService
     {
         try
         {
-            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", GamesCacheKey);
-            var keys = await _jsRuntime.InvokeAsync<string[]>("eval", "Object.keys(localStorage).filter(k => k.startsWith('stom_cache_time_'))");
-            foreach (var key in keys)
-            {
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", key);
-            }
+            await _indexedDb.ClearStoreAsync("game_cache");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error clearing cache: {ex.Message}");
         }
     }
+}
+
+public class CachedItem<T>
+{
+    public T? Data { get; set; }
+    public DateTime CacheTime { get; set; }
 }
