@@ -19,7 +19,7 @@ public class OfflineCapabilityService
     {
         try
         {
-            _isOnline = await _jsRuntime.InvokeAsync<bool>("navigator.onLine");
+            _isOnline = await _jsRuntime.InvokeAsync<bool>("isOnline");
             await _jsRuntime.InvokeVoidAsync("window.setupOnlineStatusListener", DotNetObjectReference.Create(this));
         }
         catch (Exception ex)
@@ -43,7 +43,7 @@ public class OfflineCapabilityService
     {
         try
         {
-            return await _jsRuntime.InvokeAsync<bool>("navigator.onLine");
+            return await _jsRuntime.InvokeAsync<bool>("isOnline");
         }
         catch
         {

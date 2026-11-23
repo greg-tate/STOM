@@ -34,6 +34,12 @@ public class ApiService
             await _cacheService.CacheGamesAsync(games);
             return games;
         }
+        catch (HttpRequestException ex) when (ex.InnerException?.Message.Contains("Failed to fetch") == true)
+        {
+            _logger.LogInformation("Offline: returning cached games");
+            var cached = await _cacheService.GetCachedGamesAsync();
+            return cached ?? new();
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching all games");
@@ -64,6 +70,12 @@ public class ApiService
             _logger.LogInformation("Successfully fetched game {GameId}", gameId);
             return result;
         }
+        catch (HttpRequestException ex) when (ex.InnerException?.Message.Contains("Failed to fetch") == true)
+        {
+            _logger.LogInformation("Offline: returning cached game {GameId}", gameId);
+            var cached = await _cacheService.GetCachedGameAsync(gameId);
+            return cached;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching game {GameId}", gameId);
@@ -91,6 +103,22 @@ public class ApiService
             var result = await response.Content.ReadFromJsonAsync<Score>();
             _logger.LogInformation("Successfully added score for game {GameId}", gameId);
             return result;
+        }
+        catch (HttpRequestException ex) when (ex.InnerException?.Message.Contains("Failed to fetch") == true)
+        {
+            _logger.LogError(ex, "Network error adding score for game {GameId} - treating as offline", gameId);
+            Console.WriteLine($"[DEBUG] Network error detected - queuing score offline");
+            
+            await _offlineStorageService.AddPendingScoreAsync(gameId, value);
+            SyncStatusChanged?.Invoke(this, $"Score queued (pending: {_offlineStorageService.GetPendingCount()})");
+
+            return new Score
+            {
+                GameId = gameId,
+                Value = value,
+                CreatedAt = DateTime.UtcNow,
+                IsPending = true
+            };
         }
         catch (Exception ex)
         {

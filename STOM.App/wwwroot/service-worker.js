@@ -2,14 +2,17 @@ const CACHE_NAME = 'stom-v1';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/css/app.css',
-  '/css/bootstrap.min.css'
+  '/css/app.css'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+      .then(cache => {
+        return cache.addAll(urlsToCache).catch(err => {
+          console.warn('Cache.addAll() failed:', err);
+        });
+      })
   );
 });
 

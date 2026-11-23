@@ -12,6 +12,8 @@
         <div class="top-row px-4">
             <div class="d-flex justify-content-between align-items-center w-100">
                 <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+                <a href="http://localhost:5022/swagger/index.html" target="_blank">Swagger UI</a>
+                <a href="http://localhost:5022/openapi/v1.json" target="_blank">Scalar API</a>
                 <div class="sync-indicator">
                     <span class="@StatusClass" title="@StatusTitle">
                         @if (OfflineCapabilityService.IsOffline)
@@ -52,6 +54,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await OfflineCapabilityService.InitializeAsync();
+        
+        // Debug: Log current status
+        var isOnline = await JSRuntime.InvokeAsync<bool>("isOnline");
+        Console.WriteLine($"[DEBUG] InitializeAsync: navigator.onLine = {isOnline}");
+        
         PendingCount = SyncService.GetPendingCount();
 
         SyncService.SyncStatusChanged += (s, msg) =>
@@ -63,6 +71,7 @@
 
         OfflineCapabilityService.OnlineStatusChanged += (s, isOnline) =>
         {
+            Console.WriteLine($"[DEBUG] OnlineStatusChanged: {isOnline}");
             UpdateStatus();
             StateHasChanged();
         };
