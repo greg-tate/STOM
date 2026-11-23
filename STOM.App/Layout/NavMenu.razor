@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@inject AuthService AuthService
+@implements IDisposable
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">STOM.App</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -24,16 +27,49 @@
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
+        @if (isAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/logs">
+                    <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Audit Logs
+                </NavLink>
+            </div>
+        }
     </nav>
 </div>
 
 @code {
     private bool collapseNavMenu = true;
+    private bool isAdmin = false;
+
+    protected override void OnInitialized()
+    {
+        CheckAdminRole();
+        AuthService.OnRoleChanged += OnRoleChanged;
+    }
+
+    private void OnRoleChanged(object? sender, string role)
+    {
+        Console.WriteLine($"[DEBUG] NavMenu: Role changed event received, new role={role}");
+        CheckAdminRole();
+        StateHasChanged();
+    }
+
+    private void CheckAdminRole()
+    {
+        isAdmin = AuthService.IsInRole("SuperAdmin");
+        Console.WriteLine($"[DEBUG] NavMenu: Checked role, isAdmin={isAdmin}, CurrentRole={AuthService.CurrentRole}");
+    }
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    void IDisposable.Dispose()
+    {
+        AuthService.OnRoleChanged -= OnRoleChanged;
     }
 }

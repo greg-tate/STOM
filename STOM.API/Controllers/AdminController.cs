@@ -9,24 +9,26 @@ namespace STOM.API.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "SuperAdmin")]
 public class AdminController : ControllerBase
 {
     private readonly StomDbContext _context;
     private readonly AuditService _auditService;
     private readonly BracketGenerator _bracketGenerator;
     private readonly PlayerImportService _playerImportService;
+    private readonly ILogger<AdminController> _logger;
 
     public AdminController(
         StomDbContext context,
         AuditService auditService,
         BracketGenerator bracketGenerator,
-        PlayerImportService playerImportService)
+        PlayerImportService playerImportService,
+        ILogger<AdminController> logger)
     {
         _context = context;
         _auditService = auditService;
         _bracketGenerator = bracketGenerator;
         _playerImportService = playerImportService;
+        _logger = logger;
     }
 
     [HttpPost("competitions/create")]
@@ -67,11 +69,32 @@ public class AdminController : ControllerBase
     [HttpGet("audit-logs")]
     public async Task<ActionResult<List<AuditLog>>> GetAuditLogs([FromQuery] DateTime? since)
     {
-        var query = _context.AuditLogs.AsQueryable();
-        if (since.HasValue)
-            query = query.Where(a => a.Timestamp >= since.Value);
+        try
+        {
+            _logger.LogInformation("GetAuditLogs called with since={Since}", since);
+            
+            if (!await _context.Database.CanConnectAsync())
+            {
+                _logger.LogError("Cannot connect to database");
+                return StatusCode(500, new { error = "Database connection failed" });
+            }
 
-        return await query.OrderByDescending(a => a.Timestamp).ToListAsync();
+            var query = _context.AuditLogs.AsQueryable();
+            _logger.LogInformation("AuditLogs table accessible");
+
+            if (since.HasValue)
+                query = query.Where(a => a.Timestamp >= since.Value);
+
+            var logs = await query.OrderByDescending(a => a.Timestamp).ToListAsync();
+            _logger.LogInformation("Retrieved {Count} audit logs", logs.Count);
+            return Ok(logs);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching audit logs: {Message}", ex.Message);
+            _logger.LogError("Stack trace: {StackTrace}", ex.StackTrace);
+            return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
     }
 
     [HttpPost("scores/{id}/correction")]

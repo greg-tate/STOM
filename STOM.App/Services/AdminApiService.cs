@@ -30,10 +30,22 @@ public class AdminApiService
         try
         {
             var query = since.HasValue ? $"audit-logs?since={since.Value:O}" : "audit-logs";
-            return await _httpClient.GetFromJsonAsync<List<AuditLog>>(query) ?? new();
+            Console.WriteLine($"[DEBUG] Fetching audit logs from: {query}");
+            var result = await _httpClient.GetFromJsonAsync<List<AuditLog>>(query) ?? new();
+            Console.WriteLine($"[DEBUG] Got {result.Count} audit logs");
+            return result;
         }
-        catch
+        catch (HttpRequestException ex)
         {
+            Console.WriteLine($"[ERROR] GetAuditLogsAsync failed: {ex.Message}");
+            Console.WriteLine($"[ERROR] StatusCode: {ex.StatusCode}");
+            if (ex.InnerException != null)
+                Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+            return new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] GetAuditLogsAsync unexpected error: {ex.Message}");
             return new();
         }
     }

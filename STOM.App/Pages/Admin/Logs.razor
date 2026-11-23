@@ -1,0 +1,168 @@
+@page "/admin/logs"
+@inject AdminApiService AdminApiService
+@inject AuthService AuthService
+
+<div class="page">
+    <h1>Audit Logs</h1>
+    
+    <div class="mb-3 d-flex gap-2 align-items-center">
+        <label for="filterDays">Filter by:</label>
+        <select id="filterDays" class="form-select" style="width: 150px;" @onchange="OnFilterChanged">
+            <option value="0">Last 24 hours</option>
+            <option value="1">Last 7 days</option>
+            <option value="2">Last 30 days</option>
+            <option value="3">All time</option>
+        </select>
+        
+        <button class="btn btn-primary" @onclick="RefreshLogs">🔄 Refresh</button>
+        
+        @if (logs.Count > 0)
+        {
+            <span class="text-muted ms-auto">Total: @logs.Count entries</span>
+        }
+    </div>
+
+    @if (!isAuthorized)
+    {
+        <div class="alert alert-danger">
+            You do not have permission to view audit logs.
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    }
+    else if (logs.Count == 0)
+    {
+        <div class="alert alert-info">
+            No audit logs found.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>Performed By</th>
+                        <th>Entity ID</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in logs)
+                    {
+                        <tr>
+                            <td>
+                                <small class="text-muted" title="@log.Timestamp.ToString("O")">
+                                    @log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge @GetActionBadgeClass(log.Action)">
+                                    @log.Action
+                                </span>
+                            </td>
+                            <td>@log.PerformedBy</td>
+                            <td>
+                                @if (log.EntityId.HasValue)
+                                {
+                                    <code>@log.EntityId.Value</code>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(log.Details))
+                                {
+                                    <small>@log.Details</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(log.IpAddress))
+                                {
+                                    <small class="text-muted">@log.IpAddress</small>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AuditLog> logs = new();
+    private bool isLoading = true;
+    private bool isAuthorized = true;
+    private int filterDays = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthorized = AuthService.IsInRole("SuperAdmin");
+        if (isAuthorized)
+        {
+            await RefreshLogs();
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        isLoading = true;
+        
+        DateTime? since = filterDays switch
+        {
+            0 => DateTime.UtcNow.AddDays(-1),
+            1 => DateTime.UtcNow.AddDays(-7),
+            2 => DateTime.UtcNow.AddDays(-30),
+            3 => null,
+            _ => DateTime.UtcNow.AddDays(-1)
+        };
+
+        logs = await AdminApiService.GetAuditLogsAsync(since);
+        isLoading = false;
+    }
+
+    private async Task OnFilterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int value))
+        {
+            filterDays = value;
+            await RefreshLogs();
+        }
+    }
+
+    private string GetActionBadgeClass(string action)
+    {
+        return action switch
+        {
+            "Competition created" => "bg-success",
+            "Tournament brackets generated" => "bg-info",
+            "Bulk player import" => "bg-warning",
+            "Score corrected" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+</style>
