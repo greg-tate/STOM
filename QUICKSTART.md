@@ -10,12 +10,14 @@
 ## 🚀 Get Running in 5 Minutes
 
 ### Step 1: Verify .NET Installation
+
 ```powershell
 dotnet --version
 # Should show 11.0.x or higher
 ```
 
 ### Step 2: Setup Database (Run Once)
+
 ```powershell
 cd C:\Source\Repos\STOM
 
@@ -28,63 +30,73 @@ echo "Database ready!"
 ```
 
 ### Step 3: Start STOM.API (Terminal 1)
+
 ```powershell
 cd C:\Source\Repos\STOM\STOM.API
 dotnet run
 ```
 
 **Expected Output**:
-```
+
+```powershell
 Building...
 Now listening on: http://localhost:5022
 Application started. Press Ctrl+C to shut down.
 ```
 
 ### Step 4: Start STOM.App (Terminal 2)
+
 ```powershell
 cd C:\Source\Repos\STOM\STOM.App
 dotnet run
 ```
 
 **Expected Output**:
-```
+
+```powershell
 Building...
 Now listening on: http://localhost:5173
 Application started. Press Ctrl+C to shut down.
 ```
 
 ### Step 5: Open in Browser
-- Open: **http://localhost:5173**
+
+- Open: **<http://localhost:5173>**
 - Choose a role: Scorer, Admin, or SuperAdmin
 - Click "Go to [Role]" to see role-specific UI
 
 ## 🎯 What You'll See
 
 ### Scorer Role
-- **URL**: http://localhost:5173/score/1
+
+- **URL**: <http://localhost:5173/score/1>
 - **Features**: Enter scores for games
 - **Future**: Offline support (IndexedDB sync)
 
 ### Admin Role
-- **URL**: http://localhost:5173/admin/dashboard
+
+- **URL**: <http://localhost:5173/admin/dashboard>
 - **Features**: View game standings, score averages
 - **Future**: Approve scores, device monitoring
 
 ### SuperAdmin Role
-- **URL**: http://localhost:5173/superadmin/console
+
+- **URL**: <http://localhost:5173/superadmin/console>
 - **Features**: Create tournaments, view audit logs
 - **Future**: Player import, bracket generation
 
 ## 🔌 API Endpoints
 
-### Available Now:
-```
+### Available Now
+
+```text
 GET     http://localhost:5022/api/games
 POST    http://localhost:5022/api/games/1/scores
 GET     http://localhost:5022/api/admin/audit-logs
 ```
 
-### Test with cURL:
+### Test with cURL
+
 ```powershell
 # Get all games
 curl http://localhost:5022/api/games
@@ -97,7 +109,7 @@ curl -X POST http://localhost:5022/api/games/1/scores `
 
 ## 📁 Project Structure
 
-```
+```text
 STOM/
 ├── STOM.API/              ← REST API (port 5022)
 │   ├── Controllers/       (GamesController, AdminController)
@@ -120,6 +132,7 @@ STOM/
 ## 🐛 Troubleshooting
 
 ### "Cannot connect to database"
+
 ```powershell
 # Check LocalDB status
 sqllocaldb info mssqllocaldb
@@ -133,6 +146,7 @@ sqlcmd -S "(localdb)\mssqllocaldb" -d STOM_DB -i STOM.Database\Scripts\002-Creat
 ```
 
 ### "Port 5022 already in use"
+
 ```powershell
 # Find and kill process
 $proc = Get-Process | Where-Object {$_.Name -eq "dotnet"}
@@ -142,6 +156,7 @@ $proc | Stop-Process -Force
 ```
 
 ### "Blazor app won't load"
+
 ```powershell
 # Clear browser cache
 # Ctrl+Shift+Delete → select "All time" → Clear all
@@ -150,6 +165,7 @@ $proc | Stop-Process -Force
 ```
 
 ### API not responding
+
 ```powershell
 # Verify API is running on port 5022
 netstat -ano | findstr :5022
@@ -187,12 +203,12 @@ netstat -ano | findstr :5022
 
 ## 💡 Key Concepts
 
-| Term | Meaning |
-|------|---------|
-| **PWA** | Progressive Web App (installable) |
-| **WASM** | WebAssembly (runs in browser) |
-| **LocalDB** | Local SQL Server instance |
-| **AuditLog** | Immutable record of admin actions |
+| Term                | Meaning                                   |
+|---------------------|-------------------------------------------|
+| **PWA**             | Progressive Web App (installable)         |
+| **WASM**            | WebAssembly (runs in browser)             |
+| **LocalDB**         | Local SQL Server instance                 |
+| **AuditLog**        | Immutable record of admin actions         |
 | **Role-Based Auth** | Different UIs for Scorer/Admin/SuperAdmin |
 
 ## ⚡ Commands Cheat Sheet
@@ -230,6 +246,7 @@ sqlcmd -S "(localdb)\mssqllocaldb" -d STOM_DB
 **Happy coding!** 🚀
 
 If you get stuck, check:
+
 1. README.md for detailed documentation
 2. REFACTORING_SUMMARY.md for architecture overview
 3. Terminal output for error messages

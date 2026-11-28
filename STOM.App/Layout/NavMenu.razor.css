@@ -9,6 +9,15 @@
 
 .navbar-brand {
     font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stom-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-block;
 }
 
 .bi {

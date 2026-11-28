@@ -4,7 +4,7 @@ This is the STOM solution implementing a **Blazor WebAssembly hybrid 3-project a
 
 ## Solution Structure
 
-```
+```text
 STOM/
 ├── STOM.API/                 ← ASP.NET Core REST + Admin API (Port 5022)
 │   ├── Controllers/
@@ -46,6 +46,7 @@ STOM/
 ## Architectural Highlights
 
 ### Why Hybrid 3-Project?
+
 - **3 projects** instead of 4 (simpler management)
 - **Single PWA** for all roles (Scorer, Admin, SuperAdmin)
 - **Code reuse** across all layers
@@ -54,6 +55,7 @@ STOM/
 - **Enterprise pattern** (REST API + role-based auth)
 
 ### Technology Stack
+
 - **Backend**: ASP.NET Core 11 (REST API)
 - **Frontend**: Blazor WebAssembly (PWA for all roles)
 - **Database**: SQL Server 2025 LocalDB
@@ -62,6 +64,7 @@ STOM/
 ## Development Workflow
 
 ### Step 1: Restore & Build
+
 ```powershell
 cd C:\Source\Repos\STOM
 dotnet restore
@@ -69,6 +72,7 @@ dotnet build
 ```
 
 ### Step 2: Setup Database
+
 ```powershell
 # Create LocalDB instance
 sqlcmd -S "(localdb)\mssqllocaldb" -i STOM.Database\Scripts\001-CreateDatabase.sql
@@ -79,6 +83,7 @@ sqlcmd -S "(localdb)\mssqllocaldb" -d STOM_DB -i STOM.Database\Scripts\003-SeedD
 ### Step 3: Run API & App
 
 **Terminal 1 - API (Port 5022)**:
+
 ```powershell
 cd C:\Source\Repos\STOM\STOM.API
 dotnet run
@@ -86,6 +91,7 @@ dotnet run
 ```
 
 **Terminal 2 - Blazor App (Port 5173)**:
+
 ```powershell
 cd C:\Source\Repos\STOM\STOM.App
 dotnet run
@@ -93,7 +99,8 @@ dotnet run
 ```
 
 ### Step 4: Access the Application
-1. Open browser → http://localhost:5173
+
+1. Open browser → <http://localhost:5173>
 2. Choose role (Scorer, Admin, or SuperAdmin)
 3. Navigate to corresponding UI:
    - **Scorer**: Enter scores (offline-capable)
@@ -103,14 +110,16 @@ dotnet run
 ## API Endpoints
 
 ### Scorer Endpoints (Public - Always Available)
-```
+
+```text
 GET    /api/games              - List all games
 GET    /api/games/{id}         - Get game details
 POST   /api/games/{id}/scores  - Add score to game
 ```
 
 ### Admin Endpoints (SuperAdmin Only - Audited)
-```
+
+```text
 POST   /api/admin/competitions/create              - Create competition
 POST   /api/admin/competitions/{id}/brackets       - Generate brackets
 POST   /api/admin/players/import-bulk              - Import players
@@ -131,6 +140,7 @@ GET    /api/admin/audit-logs?since={date}          - Get logs since date
 ## Configuration
 
 ### Connection String (STOM.API/appsettings.json)
+
 ```json
 {
   "ConnectionStrings": {
@@ -140,30 +150,34 @@ GET    /api/admin/audit-logs?since={date}          - Get logs since date
 ```
 
 ### API Base URL (STOM.App/Program.cs)
+
 ```csharp
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5022") });
 ```
 
 ## Development Phases
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| Phase 0 | Solution structure & projects | ✅ Complete |
-| Phase 1 | API development & models | ✅ Complete |
-| Phase 2 | Scorer UI & offline support | ⏳ Next |
-| Phase 3 | Admin UI & dashboards | ⏳ Next |
-| Phase 4 | SuperAdmin console & audit logs | ⏳ Next |
-| Phase 5 | Testing & deployment | ⏳ Next |
+| Phase   | Focus                           | Status      |
+|---------|---------------------------------|-------------|
+| Phase 0 | Solution structure & projects   | ✅ Complete |
+| Phase 1 | API development & models        | ✅ Complete |
+| Phase 2 | Scorer UI & offline support     | ⏳ Next     |
+| Phase 3 | Admin UI & dashboards           | ⏳ Next     |
+| Phase 4 | SuperAdmin console & audit logs | ⏳ Next     |
+| Phase 5 | Testing & deployment            | ⏳ Next     |
 
 ## Security Model
 
 ### Authentication
+
 - Login returns JWT token with role (Scorer, Admin, SuperAdmin)
 - Roles determine accessible UI pages and API endpoints
 - SuperAdmin role required for /api/admin/* endpoints
 
 ### Audit Logging
+
 All admin operations logged to AuditLogs table with:
+
 - Timestamp (UTC)
 - Action (Create, Update, Delete, etc.)
 - PerformedBy (User email)
@@ -172,6 +186,7 @@ All admin operations logged to AuditLogs table with:
 - IpAddress (request source)
 
 ### Authorization
+
 - [Authorize] on API controllers enforces authentication
 - [Authorize(Roles = "SuperAdmin")] on admin endpoints
 - Client-side @attribute [Authorize(Roles = "SuperAdmin")] on pages
@@ -179,6 +194,7 @@ All admin operations logged to AuditLogs table with:
 ## Database Design
 
 ### Core Tables
+
 - **Games**: Tournament games
 - **Scores**: Individual scores entered by scorers
 - **Tournaments**: Competitions
@@ -186,6 +202,7 @@ All admin operations logged to AuditLogs table with:
 - **AuditLogs**: Immutable record of admin operations
 
 ### Indexes
+
 - Timestamp (DESC) on AuditLogs for fast query
 - PerformedBy on AuditLogs for user activity tracking
 - GameId (FK) on Scores for game lookup
@@ -203,12 +220,14 @@ All admin operations logged to AuditLogs table with:
 ## Troubleshooting
 
 ### API won't start
+
 ```powershell
 # Kill any process on port 5022
 Get-Process | Where-Object {$_.Name -match "dotnet"} | Stop-Process -Force
 ```
 
 ### Database connection failed
+
 ```powershell
 # Verify LocalDB is running
 sqllocaldb info
@@ -219,6 +238,7 @@ sqlcmd -S "(localdb)\mssqllocaldb" -i STOM.Database\Scripts\001-CreateDatabase.s
 ```
 
 ### Blazor app won't load
+
 ```powershell
 # Clear browser cache
 # Ctrl+Shift+Delete → Clear all cache
@@ -231,7 +251,7 @@ sqlcmd -S "(localdb)\mssqllocaldb" -i STOM.Database\Scripts\001-CreateDatabase.s
 2. Execute database setup scripts in STOM.Database/Scripts/
 3. Start STOM.API in Terminal 1
 4. Start STOM.App in Terminal 2
-5. Open http://localhost:5173 and begin testing
+5. Open <http://localhost:5173> and begin testing
 
 ## References
 

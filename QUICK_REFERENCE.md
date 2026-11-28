@@ -1,97 +1,69 @@
-# STOM Database - Quick Reference
+# STOM Quick Reference
 
-## Start the Application
+## Connection Strings
 
-```bash
-cd C:\Source\Repos\STOM\STOM.API
-dotnet run
-```
-
-✅ Database is created automatically on startup
+| Environment | Connection String                                         |
+| ----------- | --------------------------------------------------------- |
+| Development | `Server=.;Database=STOM_DB_Dev;Integrated Security=true;` |
+| Production  | `Server=.;Database=STOM_DB;Integrated Security=true;`     |
 
 ---
 
-## Connection Details
+## API Endpoints
 
-| Setting | Value |
-|---------|-------|
-| **Server** | `(localdb)\mssqllocaldb` |
-| **Database** | `STOM_DB` (or `STOM_DB_Dev`) |
-| **Auth** | Windows Authentication |
+| Method | Endpoint                 | Purpose                      |
+| ------ | ------------------------ | ---------------------------- |
+| GET    | `/api/games`             | List all games               |
+| GET    | `/api/games/{id}`        | Get game details             |
+| POST   | `/api/games/{id}/scores` | Add score to game            |
+| GET    | `/api/admin/audit-logs`  | View audit logs (SuperAdmin) |
+
+---
+
+## Ports
+
+| Service  | Port | URL                     |
+|----------|------|-------------------------|
+| STOM.API | 5022 | <http://localhost:5022> |
+| STOM.App | 5173 | <http://localhost:5173> |
+
+---
+
+## Essential Commands
+
+```powershell
+# Start API
+cd STOM.API && dotnet run
+
+# Start App
+cd STOM.App && dotnet run
+
+# Build solution
+dotnet build
+
+# Create migration
+cd STOM.API && dotnet ef migrations add YourMigrationName
+
+# Apply migrations
+dotnet ef database update
+
+# View database
+sqlcmd -S "(localdb)\mssqllocaldb" -d STOM_DB
+> SELECT * FROM Games;
+> GO
+```
 
 ---
 
 ## Health Check
 
-```bash
-# Check status
-curl http://localhost:5000/api/health/status
-
-# Database info
-curl http://localhost:5000/api/health/database
+```powershell
+# Check API status
+curl http://localhost:5022/api/health/status
 ```
 
 ---
 
-## View Migrations
+## See Also
 
-```bash
-cd STOM.API
-dotnet ef migrations list
-```
-
----
-
-## Create New Migration
-
-```bash
-cd STOM.API
-dotnet ef migrations add YourMigrationName
-dotnet ef database update
-```
-
----
-
-## Add to Database Model
-
-1. Create new class in `STOM.API/Models/`
-2. Add `DbSet<YourModel> YourModels { get; set; }` to `StomDbContext`
-3. Create migration: `dotnet ef migrations add AddYourModel`
-4. Update database: `dotnet ef database update`
-
----
-
-## Connect in SQL Server Management Studio
-
-- **Server:** `(localdb)\mssqllocaldb`
-- **Database:** `STOM_DB` or `STOM_DB_Dev`
-- **Authentication:** Windows
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Can't connect to database | Run `sqllocaldb start` |
-| Migrations not applied | Run `dotnet ef database update` |
-| Need to reset | Delete database, restart app |
-
----
-
-## Key Files
-
-- **Configuration:** `STOM.API/appsettings.json`
-- **Code:** `STOM.API/Program.cs`
-- **DB Context:** `STOM.API/Data/StomDbContext.cs`
-- **Initialization:** `STOM.API/Services/DatabaseInitializationService.cs`
-
----
-
-## Full Documentation
-
-- **Setup Guide:** `DATABASE_SETUP_GUIDE.md`
-- **Architecture:** `DB_SETUP.md`
-- **Changes Made:** `CHANGES.md`
-- **SQL Reference:** `SQL_SERVER_SETUP.sql`
-
+See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed setup instructions.
